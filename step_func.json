@@ -1,0 +1,127 @@
+{
+    "StartAt": "Check Environment Tag",
+    "States": {
+      "Check Environment Tag": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-west-2:280032839570:function:receiver:$LATEST",
+          "Payload": {
+            "Input.$": "$"
+          }
+        },
+        "Next": "Environment Tag Check"
+      },
+      "Environment Tag Check": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.Environment_Status",
+            "NumericEquals": 1,
+            "Next": "CC Tag Check"
+          },
+          {
+            "Variable": "$.Payload.Environment_Status",
+            "NumericEquals": 0,
+            "Next": "Terminate Instance"
+          }
+        ]
+      },
+      "CC Tag Check": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.CC_Status",
+            "NumericEquals": 1,
+            "Next": "CC Validation"
+          },
+          {
+            "Variable": "$.Payload.CC_Status",
+            "NumericEquals": 0,
+            "Next": "Prod Check"
+          }
+        ]
+      },
+      "Prod Check": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.Environment_Value",
+            "StringEquals": "PROD",
+            "Next": "Send message to SNS"
+          },
+          {
+            "Not": {
+              "StringEquals": "PROD",
+              "Variable": "$.Payload.Environment_Value"
+            },
+            "Next": "Wait State 1"
+          }
+        ]
+      },
+      "CC Validation": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.CC_Validation",
+            "NumericEquals": 1,
+            "Next": "Enable Enhanced Monitoring"
+          },
+          {
+            "Variable": "$.Payload.CC_Validation",
+            "NumericEquals": 0,
+            "Next": "Prod Check"
+          }
+        ]
+      },
+      "Terminate Instance": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-west-2:280032839570:function:terminate_instance:$LATEST",
+          "Payload": {
+            "Input.$": "$.Payload.Instance "
+          }
+        },
+        "End": true
+      },
+      "Enable Enhanced Monitoring": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-west-2:280032839570:function:enable_enhanced_monitoring:$LATEST",
+          "Payload": {
+            "Input.$": "$.Payload.Instance "
+          }
+        },
+        "End": true
+      },
+      "Stop Instance": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-west-2:280032839570:function:stop_instance:$LATEST",
+          "Payload": {
+            "Input.$": "$.Payload.Instance "
+          }
+        },
+        "End": true
+      },
+      "Wait State 1": {
+        "Type": "Wait",
+        "Seconds": 30,
+        "Next": "Stop Instance"
+      },
+      "Send message to SNS": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-west-2:280032839570:function:send_message:$LATEST",
+          "Payload": {
+            "Input.$": "$.Payload.Instance "
+          }
+        },
+        "End": true
+      }
+    }
+  }
